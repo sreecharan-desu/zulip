@@ -1791,6 +1791,9 @@ class StreamTopicMessageProcessor(CompiledInlineProcessor):
             topics_policy = self.zmd.zulip_realm.topics_policy
         return topics_policy == StreamTopicsPolicyEnum.empty_topic_only.value
 
+    def is_in_markdown_link_url(self, m: Match[str], data: str) -> bool:
+        return data[: m.start()].rstrip().endswith("](") and data[m.end() :].lstrip().startswith(")")
+
 
 class StreamPattern(StreamTopicMessageProcessor):
     @override
@@ -1810,8 +1813,10 @@ class StreamPattern(StreamTopicMessageProcessor):
         # href when it processes a message with one of these, to
         # provide more clarity to API clients.
         # Also do the same for StreamTopicPattern.
-        stream_url = encode_channel(stream_id, name)
-        el.set("href", f"/#narrow/channel/{stream_url}")
+        link = f"/#narrow/channel/{encode_channel(stream_id, name)}"
+        if self.is_in_markdown_link_url(m, data):
+            return link, m.start(), m.end()
+        el.set("href", link)
         text = f"#{name}"
         el.text = markdown.util.AtomicString(text)
         return el, m.start(), m.end()
@@ -1888,6 +1893,8 @@ class StreamTopicMessagePattern(StreamTopicMessageProcessor):
         stream_url = encode_channel(stream_id, stream_name)
         topic_url = encode_hash_component(topic_name)
         link = f"/#narrow/channel/{stream_url}/topic/{topic_url}/near/{message_id}"
+        if self.is_in_markdown_link_url(m, data):
+            return link, m.start(), m.end()
         el.set("href", link)
 
         if topic_name == "":
