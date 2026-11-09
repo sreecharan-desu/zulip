@@ -117,9 +117,12 @@ FENCE_RE = re.compile(
 
         [ ]* # spaces
 
-        # header for features that use fenced block header syntax (like spoilers)
+        # Header for fenced-block features such as spoilers. Backticks are
+        # included so a tilde fence can carry an inline code span.
+        # match_fence applies CommonMark's restriction that a backtick
+        # fence's info string cannot contain backticks.
         (?P<header>
-            [^ ~`][^~`]*
+            [^ ~][^~]*
         )?
         \}?
     )?
@@ -127,6 +130,23 @@ FENCE_RE = re.compile(
     """,
     re.VERBOSE,
 )
+
+
+def match_fence(line: str) -> re.Match[str] | None:
+    """Match an opening or closing fence line.
+
+    CommonMark allows backticks in a tilde fence's info string and
+    forbids them in a backtick fence's info string. A spoiler title is
+    part of that info string, so inline code renders in a tilde-fenced
+    spoiler title.
+    """
+    match = FENCE_RE.match(line)
+    if match is None:
+        return None
+    header = match.group("header")
+    if match.group("fence").startswith("`") and header is not None and "`" in header:
+        return None
+    return match
 
 
 CODE_WRAP = "<pre><code{}>{}\n</code></pre>"
@@ -263,7 +283,7 @@ def check_for_new_fence(
     run_content_validators: bool = False,
     default_language: str | None = None,
 ) -> None:
-    m = FENCE_RE.match(line)
+    m = match_fence(line)
     if m:
         fence = m.group("fence")
         lang: str | None = m.group("lang")

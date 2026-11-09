@@ -23,6 +23,7 @@ from zerver.lib.email_notifications import (
     MissedMessageData,
     fix_emojis,
     fix_spoilers_in_html,
+    fix_spoilers_in_text,
     handle_missedmessage_emails,
     include_realm_name_in_missedmessage_emails_subject,
     prepare_synthetic_root_message_id,
@@ -1770,6 +1771,21 @@ class TestMessageNotificationEmails(ZulipTestCase):
             assert "spoiler-content" not in output_data
             assert "spoiler-block" in output_data
             assert "spoiler-title" in output_data
+
+    def test_tilde_spoiler_header_with_inline_code_in_text_emails(self) -> None:
+        # The header is part of the fence info string. A tilde fence may
+        # contain backticks, so this is a spoiler and its body is hidden.
+        content = "~~~spoiler Title with `code`\nsecret-text\n~~~"
+        result = fix_spoilers_in_text(content, "en")
+        self.assertIn("Title with `code`", result)
+        self.assertIn("Open Zulip to see the spoiler content", result)
+        self.assertNotIn("secret-text", result)
+
+        # A backtick fence may not contain backticks, so this is not a
+        # spoiler and the following line is left unchanged.
+        backtick_content = "```spoiler Title with `code`\nsecret-text\n```"
+        backtick_result = fix_spoilers_in_text(backtick_content, "en")
+        self.assertIn("secret-text", backtick_result)
 
     def test_spoilers_in_text_emails(self) -> None:
         content = "@**King Hamlet**\n\n```spoiler header text\nsecret-text\n```"

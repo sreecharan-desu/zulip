@@ -143,6 +143,24 @@ run_test("process_fenced_code_spoiler", () => {
     fenced_code.set_stash_func((text) => text);
 });
 
+run_test("process_fenced_code_spoiler_header_inline_code", () => {
+    // A tilde fence's info string may contain backticks, so the header
+    // can contain an inline code span.
+    const input = "~~~spoiler Title that includes an `inline code span`\ncontents\n~~~";
+    const output = fenced_code.process_fenced_code(input);
+    assert.ok(output.includes("spoiler-block"));
+    assert.ok(output.includes("Title that includes an `inline code span`"));
+    assert.ok(output.includes("contents"));
+});
+
+run_test("process_fenced_code_backtick_spoiler_header_inline_code", () => {
+    // A backtick fence's info string may not contain backticks, as
+    // specified by CommonMark, so this is not a spoiler.
+    const input = "```spoiler Title that includes an `inline code span`\ncontents\n```";
+    const output = fenced_code.process_fenced_code(input);
+    assert.ok(!output.includes("spoiler-block"));
+});
+
 run_test("process_fenced_code_tilde_fence", () => {
     const input = "~~~\ntilde fenced\n~~~";
     const output = fenced_code.process_fenced_code(input);
